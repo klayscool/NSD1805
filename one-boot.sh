@@ -6,20 +6,30 @@
 #4/在/root下放置想导入虚拟机中的软件包，然后可继续补入下面的脚本中
 
 #获取虚拟机后缀，自定义主机名，IP地址后缀
-read -p "指挥官您好，请输入你新建的虚拟机的名称后缀:" num
-read -p "请您输入您想定义的主机名:" name
-read -p "请输入您想建的网卡名:"  ethx
-read -p "请您输入您想建的IP地址:" ip
+echo "尊敬的指挥官：
+	您好，我是副官T701号，现为您进行虚拟战场初始化设置"
+echo
+echo
+echo
+
+read -p "请输入你预定义的虚拟战场的名称后缀(rh7_nodeX):" num
+read -p "请输入您预定义的虚拟战场名(hostname):" name
+read -p "请输入您预定义的网卡名(eth0/eth1/eth2/eth3):"  ethx
+read -p "请输入您预定义的IP地址(x.x.x.x):" ip
 
 #创建挂载点
 mkdir /mnt/mount_kvm   &> /dev/null
+
+#防止之前因操作失误而造成挂载点的不纯净而影响本次执行
+rm -rf /mnt/mount_kvm/*
+umount /mnt/mount_kvm  &> /dev/null
 
 #将虚拟机挂在到/mnt/mount_kvm目录下
 guestmount -a /var/lib/libvirt/images/rh7_node"$num".img -i /mnt/mount_kvm
 
 #判断虚拟机硬盘是否挂载上
 if [ $? -ne 0 ];then
-	exit  &&  echo "虚拟机未挂载到/MNT目录下"
+	echo "WARNING：挂载失败，请检查"  &&  exit
 fi
 
 #配置主机名
@@ -45,20 +55,46 @@ PREFIX=24" > /mnt/mount_kvm/etc/sysconfig/network-scripts/ifcfg-$ethx
 
 #配置YUM
 rm -rf /mnt/mount_kvm/etc/yum.repos.d/*
+
+case $ethx in
+eth0)
 echo "[rhel7]
 name=rhel7
 baseurl=ftp://192.168.4.254/rhel7
 enabled=1
-gpgcheck=0" > /mnt/mount_kvm/etc/yum.repos.d/rhel.repo
+gpgcheck=0" > /mnt/mount_kvm/etc/yum.repos.d/rhel.repo ;;
+eth1)
+echo "[rhel7]
+name=rhel7
+baseurl=ftp://192.168.2.254/rhel7
+enabled=1
+gpgcheck=0" > /mnt/mount_kvm/etc/yum.repos.d/rhel.repo ;;
+eth2)
+echo "[rhel7]
+name=rhel7
+baseurl=ftp://201.1.1.254/rhel7
+enabled=1
+gpgcheck=0" > /mnt/mount_kvm/etc/yum.repos.d/rhel.repo ;;
+eth3)
+echo "[rhel7]
+name=rhel7
+baseurl=ftp://201.1.2.254/rhel7
+enabled=1
+gpgcheck=0" > /mnt/mount_kvm/etc/yum.repos.d/rhel.repo ;;
+*)
+echo "WARNING:网卡选项未知，YUM配置错误,请检查" && exit
+esac
 
 #将需要的软件包复制到虚拟机/root目录下
-cp -r /root/lnmp_soft /mnt/mount_kvm/root/
-cp -r /root/soft /mnt/mount_kvm/root/
-cp /root/myshell/auto_mysql.sh /mnt/mount_kvm/root/
+#cp -r /root/one-boot/lnmp_soft /mnt/mount_kvm/root/
+cp -r /root/one-boot/soft /mnt/mount_kvm/root/
+cp /root/one-boot/auto_mysql.sh /mnt/mount_kvm/root/
 
-#将ssh密钥复制到虚拟机/root/.ssh/目录下
+#将ssh密钥复制到虚拟机/root/.ssh/目录下,添加hostkey到know_hosts
 mkdir /mnt/mount_kvm/root/.ssh/
-cp /root/authorized_keys /mnt/mount_kvm/root/.ssh/
+cp /root/one-boot/authorized_keys /mnt/mount_kvm/root/.ssh/
+
+sed -i '35c StrictHostKeyChecking no' /etc/ssh/ssh_config
 
 #将虚拟机硬盘卸载
 umount /mnt/mount_kvm
